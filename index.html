@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Finanzas 50/30/20</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:dark}
+html,body{height:100%;margin:0}
+body{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;background:#000;color:#f3f4f6;-webkit-tap-highlight-color:transparent}
+.glass{background:rgba(20,24,35,.65);border:1px solid rgba(255,255,255,.08)}
+.inp{background:rgba(12,15,24,.8);border:1px solid rgba(255,255,255,.12);color:#fff;width:100%;border-radius:12px;padding:10px;font-size:14px}
+.inp:focus{border-color:#3B82F6;outline:none}
+.frame{width:100%;max-width:430px;height:100%;background:#08090D;display:flex;flex-direction:column;position:relative;overflow:hidden}
+@media(min-width:641px){.frame{max-height:900px;border-radius:44px;box-shadow:0 0 0 8px #1a1c23}}
+.press:active{transform:scale(.96);opacity:.9}
+.island{transition:all .35s cubic-bezier(.16,1,.3,1)}
+.island.open{width:90%!important;height:64px!important;border-radius:24px!important}
+</style>
+</head>
+<body class="flex items-center justify-center">
+<div class="frame">
+  <header class="pt-2 px-5 flex flex-col items-center shrink-0">
+    <div class="w-full flex justify-between text-xs font-semibold text-slate-400 mb-1"><span id="clock">09:41</span><span>📶 5G 🔋</span></div>
+    <div id="island" onclick="toggleIsland()" class="island bg-black rounded-full border border-white/10 flex items-center px-3 cursor-pointer overflow-hidden" style="width:130px;height:32px">
+      <div id="isC" class="flex items-center justify-between w-full text-[10px] text-slate-300"><span>● 50/30/20</span><span>📊</span></div>
+      <div id="isE" class="hidden w-full justify-between items-center text-xs">
+        <div><span class="text-[9px] text-slate-400 uppercase block">Ingresos</span><b class="text-emerald-400" id="isBal">$0.00</b></div>
+        <div class="text-right"><span class="text-[9px] text-slate-400 uppercase block">Ahorro 20%</span><b class="text-pink-400" id="isSav">$0.00</b></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 overflow-y-auto px-5 pt-3 pb-24 space-y-4">
+    <div class="flex justify-between items-center">
+      <div><h1 class="text-xl font-extrabold">Finanzas 50/30/20</h1><p class="text-[11px] text-slate-400">Control inteligente de presupuesto</p></div>
+      <div class="flex items-center gap-2">
+        <button onclick="shareApp()" class="glass press px-3 py-1.5 rounded-full text-emerald-400">📤</button>
+        <select id="cur" onchange="setCur(this.value)" class="glass rounded-full px-2 py-1.5 text-xs font-bold bg-transparent">
+          <option value="$" class="bg-slate-900">$ USD</option><option value="€" class="bg-slate-900">€ EUR</option><option value="Bs" class="bg-slate-900">Bs VED</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="glass rounded-3xl p-4 flex justify-between items-center">
+      <div><span class="text-[11px] text-slate-400 block">Ingresos totales acumulados</span><span class="text-2xl font-extrabold" id="total">$0.00</span></div>
+      <button onclick="openM('incM')" class="press px-3.5 py-2 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-2xl text-xs font-bold">＋ Ingreso</button>
+    </div>
+
+    <div id="bars" class="space-y-2.5"></div>
+
+    <div class="glass rounded-3xl p-4">
+      <h3 class="text-xs font-bold text-slate-300 mb-2">🍩 Distribución presupuestaria</h3>
+      <div class="h-40 relative"><canvas id="chart"></canvas></div>
+    </div>
+
+    <div class="glass rounded-3xl p-4 space-y-3">
+      <div class="flex justify-between"><h3 class="text-xs font-bold">Movimientos</h3><button onclick="clearAll()" class="text-[11px] text-red-400">Limpiar</button></div>
+      <div id="filters" class="grid grid-cols-4 gap-1 p-1 bg-black/40 rounded-xl text-[11px] font-semibold text-slate-400 text-center"></div>
+      <div id="list" class="space-y-2 max-h-60 overflow-y-auto"></div>
+    </div>
+  </main>
+
+  <button onclick="openM('expM')" class="press absolute right-5 w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-500 to-blue-600 text-white text-xl shadow-lg z-40" style="bottom:calc(72px + env(safe-area-inset-bottom,0px))">－</button>
+
+  <nav class="bg-slate-950/90 border-t border-white/10 flex justify-around items-center px-6 py-2 shrink-0 text-[10px] font-semibold text-slate-400" style="padding-bottom:calc(8px + env(safe-area-inset-bottom,0px))">
+    <button class="text-emerald-400 press">🏠<br>Inicio</button>
+    <button onclick="openM('incM')" class="press">👛<br>Ingresos</button>
+    <button onclick="openM('expM')" class="press">🧾<br>Gastos</button>
+  </nav>
+
+  <div id="incM" class="hidden absolute inset-0 bg-black/80 z-50 items-end justify-center">
+    <form onsubmit="addInc(event)" class="glass w-full rounded-t-[28px] p-5 space-y-3" style="background:#11141d">
+      <div class="flex justify-between"><h3 class="font-bold">Nuevo ingreso</h3><button type="button" onclick="closeM('incM')" class="text-slate-400">✕</button></div>
+      <select id="iType" class="inp"><option value="weekly">Ingreso semanal</option><option value="bonus">Bonificación / extra</option></select>
+      <input id="iAmt" type="number" step="0.01" min="0.01" placeholder="Monto" required class="inp font-bold">
+      <input id="iDesc" type="text" placeholder="Ej. Pago semanal / Bono" required class="inp">
+      <button class="press w-full py-3 bg-emerald-500 font-bold rounded-xl text-sm">Agregar ingreso</button>
+    </form>
+  </div>
+
+  <div id="expM" class="hidden absolute inset-0 bg-black/80 z-50 items-end justify-center">
+    <form onsubmit="addExp(event)" class="glass w-full rounded-t-[28px] p-5 space-y-3" style="background:#11141d">
+      <div class="flex justify-between"><h3 class="font-bold">Nuevo gasto</h3><button type="button" onclick="closeM('expM')" class="text-slate-400">✕</button></div>
+      <select id="eCat" class="inp"><option value="needs">Necesidades (50%)</option><option value="wants">Deseos y gustos (30%)</option><option value="savings">Ahorro / Inversión (20%)</option></select>
+      <select id="eSub" class="inp">
+        <option>Alimentación 🛒</option><option>Vivienda 🏠</option><option>Transporte 🚗</option><option>Entretenimiento 🎬</option><option>Salidas 🍽️</option><option>Salud 💊</option><option>Fondo de emergencia 🛡️</option><option>Inversión 📈</option><option>Otro 💡</option>
+      </select>
+      <input id="eAmt" type="number" step="0.01" min="0.01" placeholder="Monto" required class="inp font-bold">
+      <input id="eDesc" type="text" placeholder="Ej. Supermercado, cine…" required class="inp">
+      <button class="press w-full py-3 bg-blue-600 font-bold rounded-xl text-sm">Registrar gasto</button>
+    </form>
+  </div>
+</div>
+
+<script>
+let S={currency:'$',incomes:[],expenses:[]},filter='all',chart;
+const CATS=[['needs','50%','Necesidades','#10B981','usado',.5],['wants','30%','Deseos & Ocio','#3B82F6','usado',.3],['savings','20%','Ahorro e Inversión','#EC4899','asignado',.2]];
+const $=id=>document.getElementById(id);
+const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=v=>S.currency+v.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+const sum=a=>a.reduce((x,i)=>x+i.amount,0);
+
+function load(){try{const s=localStorage.getItem('finance_app_state');if(s)S=Object.assign(S,JSON.parse(s))}catch(e){}$('cur').value=S.currency}
+function save(){try{localStorage.setItem('finance_app_state',JSON.stringify(S))}catch(e){}render()}
+function clock(){const d=new Date();$('clock').textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+function toggleIsland(){const o=$('island').classList.toggle('open');$('isC').classList.toggle('hidden',o);$('isE').classList.toggle('hidden',!o);$('isE').classList.toggle('flex',o)}
+function openM(id){$(id).classList.remove('hidden');$(id).classList.add('flex')}
+function closeM(id){$(id).classList.add('hidden');$(id).classList.remove('flex')}
+function setCur(c){S.currency=c;save()}
+function setFilter(f){filter=f;render()}
+function inRange(ts){
+  if(filter==='all'||!ts)return true;
+  const d=new Date(ts),n=new Date();
+  if(filter==='weekly')return (n-d)/864e5<=7;
+  if(filter==='monthly')return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear();
+  return d.getFullYear()===n.getFullYear();
+}
+function stamp(){const n=new Date();return{id:Date.now(),timestamp:n.getTime(),date:n.toLocaleDateString('es-ES',{month:'short',day:'numeric'})}}
+function addInc(e){e.preventDefault();const amount=parseFloat($('iAmt').value);if(!(amount>0))return;
+  S.incomes.push({...stamp(),type:$('iType').value,amount,desc:$('iDesc').value});e.target.reset();closeM('incM');save()}
+function addExp(e){e.preventDefault();const amount=parseFloat($('eAmt').value);if(!(amount>0))return;
+  S.expenses.push({...stamp(),category:$('eCat').value,subcategory:$('eSub').value,amount,desc:$('eDesc').value});e.target.reset();closeM('expM');save()}
+function del(id,inc){if(inc)S.incomes=S.incomes.filter(i=>i.id!==id);else S.expenses=S.expenses.filter(i=>i.id!==id);save()}
+function clearAll(){if(!S.incomes.length&&!S.expenses.length)return;if(confirm('¿Borrar todos los movimientos?')){S.incomes=[];S.expenses=[];save()}}
+
+function render(){
+  const total=sum(S.incomes),spent=[];
+  $('total').textContent=fmt(total);$('isBal').textContent=fmt(total);$('isSav').textContent=fmt(total*.2);
+  $('bars').innerHTML=CATS.map(([k,pct,name,col,word,r])=>{
+    const sp=sum(S.expenses.filter(e=>e.category===k)),bud=total*r,p=bud>0?Math.min(100,sp/bud*100):0;spent.push(sp);
+    return `<div class="glass rounded-2xl p-3.5"><div class="flex justify-between items-center mb-1.5">
+      <div class="flex items-center gap-2"><span class="w-7 h-6 rounded-lg flex items-center justify-center font-bold text-[10px]" style="background:${col}33;color:${col}">${pct}</span><span class="text-xs font-bold">${name}</span></div>
+      <span class="text-xs font-semibold">${fmt(sp)} <span class="text-slate-400">/ ${fmt(bud)}</span></span></div>
+      <div class="w-full bg-slate-800/60 rounded-full h-2 overflow-hidden"><div class="h-full rounded-full transition-all duration-300" style="width:${p}%;background:${col}"></div></div>
+      <div class="flex justify-between mt-1.5 text-[10px] text-slate-400"><span>${p.toFixed(0)}% ${word}</span><span style="color:${col}">Disp: ${fmt(Math.max(0,bud-sp))}</span></div></div>`}).join('');
+  $('filters').innerHTML=[['all','Todos'],['weekly','Semana'],['monthly','Mes'],['yearly','Año']].map(([f,l])=>
+    `<button onclick="setFilter('${f}')" class="py-1 rounded-lg ${f===filter?'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30':''}">${l}</button>`).join('');
+  const tx=[...S.incomes.map(i=>({...i,inc:true})),...S.expenses.map(e=>({...e,inc:false}))].filter(t=>inRange(t.timestamp)).sort((a,b)=>b.id-a.id);
+  $('list').innerHTML=tx.length?tx.map(t=>{
+    const ic=t.inc?(t.type==='weekly'?'📅':'🎁'):(t.category==='needs'?'🏠':t.category==='wants'?'🎮':'🐷');
+    return `<div class="glass p-2.5 rounded-xl flex justify-between items-center text-xs"><div class="flex items-center gap-2"><span class="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center">${ic}</span>
+      <div><b class="block text-[11px]">${esc(t.desc)}</b><span class="text-[10px] text-slate-400">${t.date} ${esc(t.subcategory||'')}</span></div></div>
+      <div class="flex items-center gap-2.5"><b class="text-[11px] ${t.inc?'text-emerald-400':'text-slate-200'}">${t.inc?'+':'-'}${fmt(t.amount)}</b><button onclick="del(${t.id},${t.inc})" class="text-slate-500">🗑️</button></div></div>`}).join('')
+    :'<p class="text-center text-slate-500 text-[11px] py-4">Sin datos registrados.</p>';
+  if(chart){const has=spent.some(v=>v>0);chart.data.datasets[0].data=has?spent:[50,30,20];chart.update()}
+}
+function shareApp(){
+  const t=sum(S.incomes),g=sum(S.expenses);
+  const txt=`📊 Mis Finanzas 50/30/20:\n💰 Ingresos: ${fmt(t)}\n💸 Gastos: ${fmt(g)}\n🎯 Ahorro 20%: ${fmt(t*.2)}`;
+  if(navigator.share)navigator.share({title:'Finanzas 50/30/20',text:txt}).catch(()=>{});
+  else try{navigator.clipboard.writeText(txt);alert('Resumen copiado.')}catch(e){}
+}
+window.onload=()=>{
+  clock();setInterval(clock,1000);load();
+  chart=new Chart($('chart').getContext('2d'),{type:'doughnut',data:{labels:['Necesidades','Deseos','Ahorro'],datasets:[{data:[50,30,20],backgroundColor:['#10B981','#3B82F6','#EC4899'],borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'72%',plugins:{legend:{position:'bottom',labels:{color:'#9CA3AF',boxWidth:10,font:{size:10}}}}}});
+  render();
+};
+</script>
+</body>
+</html>
