@@ -3,161 +3,237 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Finanzas">
 <title>Finanzas 50/30/20</title>
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
-:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:dark}
+:root{color-scheme:dark}
 html,body{height:100%;margin:0}
 body{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;background:#000;color:#f3f4f6;-webkit-tap-highlight-color:transparent}
 .glass{background:rgba(20,24,35,.65);border:1px solid rgba(255,255,255,.08)}
-.inp{background:rgba(12,15,24,.8);border:1px solid rgba(255,255,255,.12);color:#fff;width:100%;border-radius:12px;padding:10px;font-size:14px}
+.inp{background:rgba(12,15,24,.8);border:1px solid rgba(255,255,255,.12);color:#fff;width:100%;border-radius:12px;padding:10px;font-size:16px}
 .inp:focus{border-color:#3B82F6;outline:none}
-.frame{width:100%;max-width:430px;height:100%;background:#08090D;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.frame{width:100%;max-width:430px;height:100%;background:#08090D;display:flex;flex-direction:column;position:relative;overflow:hidden;padding-top:env(safe-area-inset-top,0px)}
 @media(min-width:641px){.frame{max-height:900px;border-radius:44px;box-shadow:0 0 0 8px #1a1c23}}
 .press:active{transform:scale(.96);opacity:.9}
 .island{transition:all .35s cubic-bezier(.16,1,.3,1)}
 .island.open{width:90%!important;height:64px!important;border-radius:24px!important}
+.btn{padding:6px 10px;border-radius:10px;font-size:11px;font-weight:700}
 </style>
 </head>
 <body class="flex items-center justify-center">
 <div class="frame">
-  <header class="pt-2 px-5 flex flex-col items-center shrink-0">
-    <div class="w-full flex justify-between text-xs font-semibold text-slate-400 mb-1"><span id="clock">09:41</span><span>📶 5G 🔋</span></div>
-    <div id="island" onclick="toggleIsland()" class="island bg-black rounded-full border border-white/10 flex items-center px-3 cursor-pointer overflow-hidden" style="width:130px;height:32px">
-      <div id="isC" class="flex items-center justify-between w-full text-[10px] text-slate-300"><span>● 50/30/20</span><span>📊</span></div>
-      <div id="isE" class="hidden w-full justify-between items-center text-xs">
-        <div><span class="text-[9px] text-slate-400 uppercase block">Ingresos</span><b class="text-emerald-400" id="isBal">$0.00</b></div>
-        <div class="text-right"><span class="text-[9px] text-slate-400 uppercase block">Ahorro 20%</span><b class="text-pink-400" id="isSav">$0.00</b></div>
-      </div>
+<header class="pt-2 px-5 flex flex-col items-center shrink-0">
+  <div class="w-full flex justify-between text-xs font-semibold text-slate-400 mb-1"><span id="clock">09:41</span><span>📶 5G 🔋</span></div>
+  <div id="island" onclick="toggleIsland()" class="island bg-black rounded-full border border-white/10 flex items-center px-3 cursor-pointer overflow-hidden" style="width:130px;height:32px">
+    <div id="isC" class="flex items-center justify-between w-full text-[10px] text-slate-300"><span>● 50/30/20</span><span>📊</span></div>
+    <div id="isE" class="hidden w-full justify-between items-center text-xs">
+      <div><span class="text-[9px] text-slate-400 uppercase block">Ingresos</span><b class="text-emerald-400" id="isBal"></b></div>
+      <div class="text-right"><span class="text-[9px] text-slate-400 uppercase block">Ahorro 20%</span><b class="text-pink-400" id="isSav"></b></div>
     </div>
-  </header>
-
-  <main class="flex-1 overflow-y-auto px-5 pt-3 pb-24 space-y-4">
-    <div class="flex justify-between items-center">
-      <div><h1 class="text-xl font-extrabold">Finanzas 50/30/20</h1><p class="text-[11px] text-slate-400">Control inteligente de presupuesto</p></div>
-      <div class="flex items-center gap-2">
-        <button onclick="shareApp()" class="glass press px-3 py-1.5 rounded-full text-emerald-400">📤</button>
-        <select id="cur" onchange="setCur(this.value)" class="glass rounded-full px-2 py-1.5 text-xs font-bold bg-transparent">
-          <option value="$" class="bg-slate-900">$ USD</option><option value="€" class="bg-slate-900">€ EUR</option><option value="Bs" class="bg-slate-900">Bs VED</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="glass rounded-3xl p-4 flex justify-between items-center">
-      <div><span class="text-[11px] text-slate-400 block">Ingresos totales acumulados</span><span class="text-2xl font-extrabold" id="total">$0.00</span></div>
-      <button onclick="openM('incM')" class="press px-3.5 py-2 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-2xl text-xs font-bold">＋ Ingreso</button>
-    </div>
-
-    <div id="bars" class="space-y-2.5"></div>
-
-    <div class="glass rounded-3xl p-4">
-      <h3 class="text-xs font-bold text-slate-300 mb-2">🍩 Distribución presupuestaria</h3>
-      <div class="h-40 relative"><canvas id="chart"></canvas></div>
-    </div>
-
-    <div class="glass rounded-3xl p-4 space-y-3">
-      <div class="flex justify-between"><h3 class="text-xs font-bold">Movimientos</h3><button onclick="clearAll()" class="text-[11px] text-red-400">Limpiar</button></div>
-      <div id="filters" class="grid grid-cols-4 gap-1 p-1 bg-black/40 rounded-xl text-[11px] font-semibold text-slate-400 text-center"></div>
-      <div id="list" class="space-y-2 max-h-60 overflow-y-auto"></div>
-    </div>
-  </main>
-
-  <button onclick="openM('expM')" class="press absolute right-5 w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-500 to-blue-600 text-white text-xl shadow-lg z-40" style="bottom:calc(72px + env(safe-area-inset-bottom,0px))">－</button>
-
-  <nav class="bg-slate-950/90 border-t border-white/10 flex justify-around items-center px-6 py-2 shrink-0 text-[10px] font-semibold text-slate-400" style="padding-bottom:calc(8px + env(safe-area-inset-bottom,0px))">
-    <button class="text-emerald-400 press">🏠<br>Inicio</button>
-    <button onclick="openM('incM')" class="press">👛<br>Ingresos</button>
-    <button onclick="openM('expM')" class="press">🧾<br>Gastos</button>
-  </nav>
-
-  <div id="incM" class="hidden absolute inset-0 bg-black/80 z-50 items-end justify-center">
-    <form onsubmit="addInc(event)" class="glass w-full rounded-t-[28px] p-5 space-y-3" style="background:#11141d">
-      <div class="flex justify-between"><h3 class="font-bold">Nuevo ingreso</h3><button type="button" onclick="closeM('incM')" class="text-slate-400">✕</button></div>
-      <select id="iType" class="inp"><option value="weekly">Ingreso semanal</option><option value="bonus">Bonificación / extra</option></select>
-      <input id="iAmt" type="number" step="0.01" min="0.01" placeholder="Monto" required class="inp font-bold">
-      <input id="iDesc" type="text" placeholder="Ej. Pago semanal / Bono" required class="inp">
-      <button class="press w-full py-3 bg-emerald-500 font-bold rounded-xl text-sm">Agregar ingreso</button>
-    </form>
   </div>
+</header>
 
-  <div id="expM" class="hidden absolute inset-0 bg-black/80 z-50 items-end justify-center">
-    <form onsubmit="addExp(event)" class="glass w-full rounded-t-[28px] p-5 space-y-3" style="background:#11141d">
-      <div class="flex justify-between"><h3 class="font-bold">Nuevo gasto</h3><button type="button" onclick="closeM('expM')" class="text-slate-400">✕</button></div>
-      <select id="eCat" class="inp"><option value="needs">Necesidades (50%)</option><option value="wants">Deseos y gustos (30%)</option><option value="savings">Ahorro / Inversión (20%)</option></select>
-      <select id="eSub" class="inp">
-        <option>Alimentación 🛒</option><option>Vivienda 🏠</option><option>Transporte 🚗</option><option>Entretenimiento 🎬</option><option>Salidas 🍽️</option><option>Salud 💊</option><option>Fondo de emergencia 🛡️</option><option>Inversión 📈</option><option>Otro 💡</option>
+<main class="flex-1 overflow-y-auto px-5 pt-3 pb-28">
+<!-- INICIO -->
+<div id="tab-home" class="space-y-4">
+  <div class="flex justify-between items-center">
+    <div><h1 class="text-xl font-extrabold">Finanzas 50/30/20</h1><p class="text-[11px] text-slate-400">Control inteligente de presupuesto</p></div>
+    <div class="flex items-center gap-2">
+      <button onclick="shareApp()" class="glass press px-3 py-1.5 rounded-full text-emerald-400">📤</button>
+      <select id="cur" onchange="setCur(this.value)" class="glass rounded-full px-2 py-1.5 text-xs font-bold bg-transparent">
+        <option value="$" class="bg-slate-900">$ USD</option><option value="€" class="bg-slate-900">€ EUR</option><option value="Bs" class="bg-slate-900">Bs VED</option>
       </select>
-      <input id="eAmt" type="number" step="0.01" min="0.01" placeholder="Monto" required class="inp font-bold">
-      <input id="eDesc" type="text" placeholder="Ej. Supermercado, cine…" required class="inp">
-      <button class="press w-full py-3 bg-blue-600 font-bold rounded-xl text-sm">Registrar gasto</button>
-    </form>
+    </div>
+  </div>
+  <div id="rate"></div>
+  <div class="glass rounded-3xl p-4 flex justify-between items-center">
+    <div><span class="text-[11px] text-slate-400 block">Ingresos totales acumulados</span><span class="text-2xl font-extrabold block" id="total"></span><span id="totalUsd"></span></div>
+    <button onclick="incForm()" class="press px-3.5 py-2 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-2xl text-xs font-bold">＋ Ingreso</button>
+  </div>
+  <div id="alerts" class="space-y-2"></div>
+  <div id="bars" class="space-y-2.5"></div>
+  <div class="glass rounded-3xl p-4"><h3 class="text-xs font-bold text-slate-300 mb-2">🍩 Distribución del gasto</h3><div class="h-44 relative"><canvas id="donut"></canvas></div></div>
+  <div class="glass rounded-3xl p-4"><h3 class="text-xs font-bold text-slate-300 mb-2">📈 Ingresos vs gastos (6 meses)</h3><div class="h-44 relative"><canvas id="monthly"></canvas></div></div>
+  <div class="glass rounded-3xl p-4 space-y-3">
+    <div class="flex justify-between"><h3 class="text-xs font-bold">Movimientos</h3><button onclick="clearAll()" class="text-[11px] text-red-400">Limpiar</button></div>
+    <div id="filters" class="grid grid-cols-4 gap-1 p-1 bg-black/40 rounded-xl text-[11px] font-semibold text-slate-400 text-center"></div>
+    <div id="list" class="space-y-2 max-h-72 overflow-y-auto"></div>
   </div>
 </div>
 
+<!-- METAS -->
+<div id="tab-goals" class="hidden space-y-4">
+  <div class="flex justify-between items-center"><div><h1 class="text-xl font-extrabold">Metas de ahorro</h1><p class="text-[11px] text-slate-400">Define objetivos y abona poco a poco</p></div>
+  <button onclick="goalForm()" class="press px-3.5 py-2 bg-pink-500/20 border border-pink-500/30 text-pink-400 rounded-2xl text-xs font-bold">＋ Meta</button></div>
+  <div id="goalList" class="space-y-3"></div>
+</div>
+
+<!-- MÁS -->
+<div id="tab-more" class="hidden space-y-4">
+  <div><h1 class="text-xl font-extrabold">Más opciones</h1><p class="text-[11px] text-slate-400">Gastos fijos, exportación y respaldo</p></div>
+  <div class="glass rounded-3xl p-4 space-y-3">
+    <div class="flex justify-between items-center"><h3 class="text-xs font-bold">🔁 Gastos recurrentes</h3><button onclick="recForm()" class="btn bg-blue-500/20 text-blue-400">＋ Agregar</button></div>
+    <p class="text-[10px] text-slate-400">Se registran solos una vez al mes, el día que elijas, al abrir la app.</p>
+    <div id="recList" class="space-y-2"></div>
+  </div>
+  <div class="glass rounded-3xl p-4 space-y-2">
+    <h3 class="text-xs font-bold">📁 Datos</h3>
+    <button onclick="exportCSV()" class="press w-full py-2.5 rounded-xl bg-emerald-500/20 text-emerald-400 text-xs font-bold">Exportar a Excel (CSV)</button>
+    <button onclick="backup()" class="press w-full py-2.5 rounded-xl bg-blue-500/20 text-blue-400 text-xs font-bold">Descargar respaldo (JSON)</button>
+    <button onclick="$('restoreIn').click()" class="press w-full py-2.5 rounded-xl bg-amber-500/20 text-amber-400 text-xs font-bold">Restaurar respaldo</button>
+    <input id="restoreIn" type="file" accept=".json,application/json" class="hidden" onchange="restore(this)">
+  </div>
+</div>
+</main>
+
+<button onclick="expForm()" class="press absolute right-5 w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-500 to-blue-600 text-white text-xl shadow-lg z-40" style="bottom:calc(72px + env(safe-area-inset-bottom,0px))">－</button>
+
+<nav class="bg-slate-950/90 border-t border-white/10 flex justify-around items-center px-6 pt-2 shrink-0 text-[10px] font-semibold" style="padding-bottom:calc(8px + env(safe-area-inset-bottom,0px))">
+  <button id="nav-home" onclick="setTab('home')" class="press">🏠<br>Inicio</button>
+  <button id="nav-goals" onclick="setTab('goals')" class="press">🎯<br>Metas</button>
+  <button id="nav-more" onclick="setTab('more')" class="press">⚙️<br>Más</button>
+</nav>
+
+<div id="formM" class="hidden absolute inset-0 bg-black/80 z-50 items-end justify-center">
+  <form onsubmit="submitForm(event)" class="w-full rounded-t-[28px] p-5 space-y-3 max-h-full overflow-y-auto" style="background:#11141d;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))">
+    <div class="flex justify-between"><h3 id="fTitle" class="font-bold"></h3><button type="button" onclick="closeM('formM')" class="text-slate-400">✕</button></div>
+    <div id="fFields" class="space-y-3"></div>
+    <button id="fBtn" class="press w-full py-3 bg-blue-600 font-bold rounded-xl text-sm">Guardar</button>
+  </form>
+</div>
+</div>
+
 <script>
-let S={currency:'$',incomes:[],expenses:[]},filter='all',chart;
-const CATS=[['needs','50%','Necesidades','#10B981','usado',.5],['wants','30%','Deseos & Ocio','#3B82F6','usado',.3],['savings','20%','Ahorro e Inversión','#EC4899','asignado',.2]];
 const $=id=>document.getElementById(id);
 const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fmt=v=>S.currency+v.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+let S={currency:'$',incomes:[],expenses:[],goals:[],recurring:[],rate:null},filter='all',charts={},rateErr=false,formFn=null,_u=Date.now();
+const uid=()=>++_u;
+const CATS=[['needs','50%','Necesidades','#10B981','usado',.5],['wants','30%','Deseos & Ocio','#3B82F6','usado',.3],['savings','20%','Ahorro e Inversión','#EC4899','asignado',.2]];
+const CATOPT=[['needs','Necesidades (50%)'],['wants','Deseos y gustos (30%)'],['savings','Ahorro / Inversión (20%)']];
+const SUBOPT=['Alimentación 🛒','Vivienda 🏠','Transporte 🚗','Entretenimiento 🎬','Salidas 🍽️','Salud 💊','Fondo de emergencia 🛡️','Inversión 📈','Otro 💡'].map(s=>[s,s]);
 const sum=a=>a.reduce((x,i)=>x+i.amount,0);
+const isBs=()=>S.currency==='Bs';
+const num=v=>v.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmt=v=>S.currency+(isBs()?' ':'')+num(v);
+const usd=v=>isBs()&&S.rate?`<span class="text-slate-400 text-[10px] block">≈ $${num(v/S.rate.value)} USD</span>`:'';
+const stamp=()=>{const n=new Date();return{id:uid(),timestamp:n.getTime(),date:n.toLocaleDateString('es-ES',{month:'short',day:'numeric'})}};
 
+/* ---------- Persistencia ---------- */
 function load(){try{const s=localStorage.getItem('finance_app_state');if(s)S=Object.assign(S,JSON.parse(s))}catch(e){}$('cur').value=S.currency}
 function save(){try{localStorage.setItem('finance_app_state',JSON.stringify(S))}catch(e){}render()}
+
+/* ---------- Tasa BCV ---------- */
+async function getRate(){
+  try{
+    const r=await fetch('https://ve.dolarapi.com/v1/dolares/oficial');if(!r.ok)throw 0;
+    const d=await r.json(),v=parseFloat(d.promedio||d.venta);if(!(v>0))throw 0;
+    S.rate={value:v,date:d.fechaActualizacion||new Date().toISOString(),manual:false};rateErr=false;
+  }catch(e){rateErr=true}
+  save();
+}
+function manualRate(){openForm('Tasa manual (Bs por $1)',[{id:'v',l:'Tasa BCV',t:'number',v:S.rate?S.rate.value:''}],o=>{const v=parseFloat(o.v);if(v>0){S.rate={value:v,date:new Date().toISOString(),manual:true};rateErr=false;save()}})}
+function setCur(c){S.currency=c;if(c==='Bs')getRate();else save()}
+
+/* ---------- UI base ---------- */
 function clock(){const d=new Date();$('clock').textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
 function toggleIsland(){const o=$('island').classList.toggle('open');$('isC').classList.toggle('hidden',o);$('isE').classList.toggle('hidden',!o);$('isE').classList.toggle('flex',o)}
 function openM(id){$(id).classList.remove('hidden');$(id).classList.add('flex')}
 function closeM(id){$(id).classList.add('hidden');$(id).classList.remove('flex')}
-function setCur(c){S.currency=c;save()}
+function setTab(t){['home','goals','more'].forEach(x=>{$('tab-'+x).classList.toggle('hidden',x!==t);$('nav-'+x).className='press '+(x===t?'text-emerald-400':'text-slate-400')})}
 function setFilter(f){filter=f;render()}
-function inRange(ts){
-  if(filter==='all'||!ts)return true;
-  const d=new Date(ts),n=new Date();
+function inRange(ts){if(filter==='all'||!ts)return true;const d=new Date(ts),n=new Date();
   if(filter==='weekly')return (n-d)/864e5<=7;
   if(filter==='monthly')return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear();
-  return d.getFullYear()===n.getFullYear();
-}
-function stamp(){const n=new Date();return{id:Date.now(),timestamp:n.getTime(),date:n.toLocaleDateString('es-ES',{month:'short',day:'numeric'})}}
-function addInc(e){e.preventDefault();const amount=parseFloat($('iAmt').value);if(!(amount>0))return;
-  S.incomes.push({...stamp(),type:$('iType').value,amount,desc:$('iDesc').value});e.target.reset();closeM('incM');save()}
-function addExp(e){e.preventDefault();const amount=parseFloat($('eAmt').value);if(!(amount>0))return;
-  S.expenses.push({...stamp(),category:$('eCat').value,subcategory:$('eSub').value,amount,desc:$('eDesc').value});e.target.reset();closeM('expM');save()}
-function del(id,inc){if(inc)S.incomes=S.incomes.filter(i=>i.id!==id);else S.expenses=S.expenses.filter(i=>i.id!==id);save()}
-function clearAll(){if(!S.incomes.length&&!S.expenses.length)return;if(confirm('¿Borrar todos los movimientos?')){S.incomes=[];S.expenses=[];save()}}
+  return d.getFullYear()===n.getFullYear()}
 
-function render(){
-  const total=sum(S.incomes),spent=[];
-  $('total').textContent=fmt(total);$('isBal').textContent=fmt(total);$('isSav').textContent=fmt(total*.2);
-  $('bars').innerHTML=CATS.map(([k,pct,name,col,word,r])=>{
-    const sp=sum(S.expenses.filter(e=>e.category===k)),bud=total*r,p=bud>0?Math.min(100,sp/bud*100):0;spent.push(sp);
-    return `<div class="glass rounded-2xl p-3.5"><div class="flex justify-between items-center mb-1.5">
-      <div class="flex items-center gap-2"><span class="w-7 h-6 rounded-lg flex items-center justify-center font-bold text-[10px]" style="background:${col}33;color:${col}">${pct}</span><span class="text-xs font-bold">${name}</span></div>
-      <span class="text-xs font-semibold">${fmt(sp)} <span class="text-slate-400">/ ${fmt(bud)}</span></span></div>
-      <div class="w-full bg-slate-800/60 rounded-full h-2 overflow-hidden"><div class="h-full rounded-full transition-all duration-300" style="width:${p}%;background:${col}"></div></div>
-      <div class="flex justify-between mt-1.5 text-[10px] text-slate-400"><span>${p.toFixed(0)}% ${word}</span><span style="color:${col}">Disp: ${fmt(Math.max(0,bud-sp))}</span></div></div>`}).join('');
-  $('filters').innerHTML=[['all','Todos'],['weekly','Semana'],['monthly','Mes'],['yearly','Año']].map(([f,l])=>
-    `<button onclick="setFilter('${f}')" class="py-1 rounded-lg ${f===filter?'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30':''}">${l}</button>`).join('');
-  const tx=[...S.incomes.map(i=>({...i,inc:true})),...S.expenses.map(e=>({...e,inc:false}))].filter(t=>inRange(t.timestamp)).sort((a,b)=>b.id-a.id);
-  $('list').innerHTML=tx.length?tx.map(t=>{
-    const ic=t.inc?(t.type==='weekly'?'📅':'🎁'):(t.category==='needs'?'🏠':t.category==='wants'?'🎮':'🐷');
-    return `<div class="glass p-2.5 rounded-xl flex justify-between items-center text-xs"><div class="flex items-center gap-2"><span class="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center">${ic}</span>
-      <div><b class="block text-[11px]">${esc(t.desc)}</b><span class="text-[10px] text-slate-400">${t.date} ${esc(t.subcategory||'')}</span></div></div>
-      <div class="flex items-center gap-2.5"><b class="text-[11px] ${t.inc?'text-emerald-400':'text-slate-200'}">${t.inc?'+':'-'}${fmt(t.amount)}</b><button onclick="del(${t.id},${t.inc})" class="text-slate-500">🗑️</button></div></div>`}).join('')
-    :'<p class="text-center text-slate-500 text-[11px] py-4">Sin datos registrados.</p>';
-  if(chart){const has=spent.some(v=>v>0);chart.data.datasets[0].data=has?spent:[50,30,20];chart.update()}
+/* ---------- Formulario genérico ---------- */
+function openForm(title,fields,fn,btn='Guardar'){
+  $('fTitle').textContent=title;
+  $('fFields').innerHTML=fields.map(f=>`<div><label class="text-[11px] text-slate-300 block mb-1">${f.l}</label>`+(f.o
+    ?`<select id="f_${f.id}" class="inp">${f.o.map(o=>`<option value="${esc(o[0])}"${o[0]==f.v?' selected':''}>${esc(o[1])}</option>`).join('')}</select>`
+    :`<input id="f_${f.id}" type="${f.t||'text'}" ${f.t==='number'?`step="${f.s||'0.01'}" min="${f.m||'0.01'}"`:''} value="${esc(f.v??'')}" required class="inp">`)+'</div>').join('');
+  $('fBtn').textContent=btn;formFn=fn;openM('formM');
 }
-function shareApp(){
-  const t=sum(S.incomes),g=sum(S.expenses);
+function submitForm(e){e.preventDefault();const o={};document.querySelectorAll('#fFields [id^=f_]').forEach(el=>o[el.id.slice(2)]=el.value);closeM('formM');formFn(o)}
+
+/* ---------- Ingresos / gastos (con edición) ---------- */
+function incForm(id){const x=S.incomes.find(i=>i.id===id)||{};
+  openForm(id?'Editar ingreso':'Nuevo ingreso',[{id:'type',l:'Tipo',o:[['weekly','Ingreso semanal'],['bonus','Bonificación / extra']],v:x.type},{id:'amt',l:'Monto ('+S.currency+')',t:'number',v:x.amount},{id:'desc',l:'Descripción',v:x.desc}],
+  o=>{const a=parseFloat(o.amt);if(!(a>0))return;if(id)Object.assign(x,{type:o.type,amount:a,desc:o.desc});else S.incomes.push({...stamp(),type:o.type,amount:a,desc:o.desc});save()})}
+function expForm(id){const x=S.expenses.find(i=>i.id===id)||{};
+  openForm(id?'Editar gasto':'Nuevo gasto',[{id:'cat',l:'Regla 50/30/20',o:CATOPT,v:x.category},{id:'sub',l:'Categoría',o:SUBOPT,v:x.subcategory},{id:'amt',l:'Monto ('+S.currency+')',t:'number',v:x.amount},{id:'desc',l:'Descripción',v:x.desc}],
+  o=>{const a=parseFloat(o.amt);if(!(a>0))return;const d={category:o.cat,subcategory:o.sub,amount:a,desc:o.desc};if(id)Object.assign(x,d);else S.expenses.push({...stamp(),...d});save()})}
+function del(id,inc){if(!confirm('¿Eliminar este movimiento?'))return;if(inc)S.incomes=S.incomes.filter(i=>i.id!==id);else S.expenses=S.expenses.filter(i=>i.id!==id);save()}
+function clearAll(){if((S.incomes.length||S.expenses.length)&&confirm('¿Borrar todos los movimientos?')){S.incomes=[];S.expenses=[];save()}}
+
+/* ---------- Metas ---------- */
+function goalForm(id){const g=S.goals.find(x=>x.id===id)||{};
+  openForm(id?'Editar meta':'Nueva meta',[{id:'name',l:'Nombre',v:g.name},{id:'target',l:'Monto objetivo ('+S.currency+')',t:'number',v:g.target}],
+  o=>{const t=parseFloat(o.target);if(!(t>0))return;if(id)Object.assign(g,{name:o.name,target:t});else S.goals.push({id:uid(),name:o.name,target:t,saved:0});save()})}
+function goalAdd(id){const g=S.goals.find(x=>x.id===id);
+  openForm('Abonar a '+g.name,[{id:'amt',l:'Monto ('+S.currency+')',t:'number'}],o=>{const a=parseFloat(o.amt);if(a>0){g.saved+=a;save()}},'Abonar')}
+function goalDel(id){if(confirm('¿Eliminar esta meta?')){S.goals=S.goals.filter(x=>x.id!==id);save()}}
+
+/* ---------- Recurrentes ---------- */
+function recForm(){openForm('Nuevo gasto recurrente',[{id:'cat',l:'Regla 50/30/20',o:CATOPT},{id:'sub',l:'Categoría',o:SUBOPT},{id:'amt',l:'Monto ('+S.currency+')',t:'number'},{id:'desc',l:'Descripción',v:''},{id:'day',l:'Día del mes (1-28)',t:'number',s:'1',m:'1',v:1}],
+  o=>{const a=parseFloat(o.amt),d=Math.min(28,Math.max(1,parseInt(o.day)||1));if(a>0){S.recurring.push({id:uid(),category:o.cat,subcategory:o.sub,amount:a,desc:o.desc,day:d,last:''});applyRecurring();save()}})}
+function recDel(id){S.recurring=S.recurring.filter(r=>r.id!==id);save()}
+function applyRecurring(){const n=new Date(),ym=n.getFullYear()+'-'+(n.getMonth()+1);
+  S.recurring.forEach(r=>{if(r.last!==ym&&n.getDate()>=r.day){S.expenses.push({...stamp(),category:r.category,subcategory:r.subcategory,amount:r.amount,desc:r.desc+' 🔁'});r.last=ym}})}
+
+/* ---------- Exportar / respaldo ---------- */
+function dl(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.appendChild(a);a.click();a.remove()}
+function exportCSV(){
+  const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const rows=[['Tipo','Fecha','Regla','Categoría','Descripción','Monto','Moneda']];
+  S.incomes.forEach(i=>rows.push(['Ingreso',new Date(i.timestamp).toISOString().slice(0,10),'',i.type==='weekly'?'Semanal':'Extra',i.desc,i.amount,S.currency]));
+  S.expenses.forEach(e=>rows.push(['Gasto',new Date(e.timestamp).toISOString().slice(0,10),e.category,e.subcategory,e.desc,e.amount,S.currency]));
+  dl('finanzas.csv','\ufeff'+rows.map(r=>r.map(q).join(',')).join('\n'),'text/csv;charset=utf-8');
+}
+function backup(){dl('respaldo-finanzas.json',JSON.stringify(S),'application/json')}
+function restore(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d.incomes)||!Array.isArray(d.expenses))throw 0;if(confirm('Esto reemplazará tus datos actuales. ¿Continuar?')){S=Object.assign({currency:'$',goals:[],recurring:[],rate:null},d);$('cur').value=S.currency;save()}}catch(e){alert('Archivo de respaldo no válido.')}inp.value=''};
+  r.readAsText(f)}
+function shareApp(){const t=sum(S.incomes),g=sum(S.expenses);
   const txt=`📊 Mis Finanzas 50/30/20:\n💰 Ingresos: ${fmt(t)}\n💸 Gastos: ${fmt(g)}\n🎯 Ahorro 20%: ${fmt(t*.2)}`;
-  if(navigator.share)navigator.share({title:'Finanzas 50/30/20',text:txt}).catch(()=>{});
-  else try{navigator.clipboard.writeText(txt);alert('Resumen copiado.')}catch(e){}
+  if(navigator.share)navigator.share({title:'Finanzas 50/30/20',text:txt}).catch(()=>{});else try{navigator.clipboard.writeText(txt);alert('Resumen copiado.')}catch(e){}}
+
+/* ---------- Render ---------- */
+function render(){
+  const total=sum(S.incomes),spent=[],al=[];
+  $('total').textContent=fmt(total);$('totalUsd').innerHTML=usd(total);$('isBal').textContent=fmt(total);$('isSav').textContent=fmt(total*.2);
+  $('rate').innerHTML=isBs()?`<div class="glass rounded-2xl p-3 text-xs flex justify-between items-center"><div><b>🏦 Tasa BCV del día</b><br>${S.rate?`<span class="text-emerald-400 font-bold">Bs ${num(S.rate.value)}</span> por $1 · ${new Date(S.rate.date).toLocaleDateString('es-VE')}${S.rate.manual?' (manual)':''}`:'<span class="text-slate-400">Sin datos aún</span>'}${rateErr?'<br><span class="text-amber-400 text-[10px]">Sin conexión: usando la última tasa guardada</span>':''}</div><div class="flex gap-1"><button onclick="getRate()" class="btn bg-white/10">↻</button><button onclick="manualRate()" class="btn bg-white/10">✎</button></div></div>`:'';
+  $('bars').innerHTML=CATS.map(([k,pct,name,col,word,r])=>{
+    const sp=sum(S.expenses.filter(e=>e.category===k)),bud=total*r,raw=bud>0?sp/bud*100:0,p=Math.min(100,raw);spent.push(sp);
+    if(k!=='savings'&&bud>0&&raw>=90)al.push(raw>=100?`<div class="rounded-xl p-2.5 text-xs bg-red-500/15 border border-red-500/30 text-red-300">🚨 Superaste tu presupuesto de ${name} (${raw.toFixed(0)}%)</div>`:`<div class="rounded-xl p-2.5 text-xs bg-amber-500/15 border border-amber-500/30 text-amber-300">⚠️ Llevas ${raw.toFixed(0)}% de ${name}</div>`);
+    return `<div class="glass rounded-2xl p-3.5"><div class="flex justify-between items-center mb-1.5"><div class="flex items-center gap-2"><span class="w-7 h-6 rounded-lg flex items-center justify-center font-bold text-[10px]" style="background:${col}33;color:${col}">${pct}</span><span class="text-xs font-bold">${name}</span></div><span class="text-xs font-semibold">${fmt(sp)} <span class="text-slate-400">/ ${fmt(bud)}</span></span></div><div class="w-full bg-slate-800/60 rounded-full h-2 overflow-hidden"><div class="h-full rounded-full transition-all duration-300" style="width:${p}%;background:${col}"></div></div><div class="flex justify-between mt-1.5 text-[10px] text-slate-400"><span>${p.toFixed(0)}% ${word}</span><span style="color:${col}">Disp: ${fmt(Math.max(0,bud-sp))}</span></div></div>`}).join('');
+  $('alerts').innerHTML=al.join('');
+  $('filters').innerHTML=[['all','Todos'],['weekly','Semana'],['monthly','Mes'],['yearly','Año']].map(([f,l])=>`<button onclick="setFilter('${f}')" class="py-1 rounded-lg ${f===filter?'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30':''}">${l}</button>`).join('');
+  const tx=[...S.incomes.map(i=>({...i,inc:true})),...S.expenses.map(e=>({...e,inc:false}))].filter(t=>inRange(t.timestamp)).sort((a,b)=>b.id-a.id);
+  $('list').innerHTML=tx.length?tx.map(t=>{const ic=t.inc?(t.type==='weekly'?'📅':'🎁'):(t.category==='needs'?'🏠':t.category==='wants'?'🎮':'🐷');
+    return `<div class="glass p-2.5 rounded-xl flex justify-between items-center text-xs"><div class="flex items-center gap-2"><span class="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center">${ic}</span><div><b class="block text-[11px]">${esc(t.desc)}</b><span class="text-[10px] text-slate-400">${t.date} ${esc(t.subcategory||'')}</span></div></div><div class="flex items-center gap-2"><div class="text-right"><b class="text-[11px] ${t.inc?'text-emerald-400':'text-slate-200'}">${t.inc?'+':'-'}${fmt(t.amount)}</b>${usd(t.amount)}</div><button onclick="${t.inc?'incForm':'expForm'}(${t.id})">✏️</button><button onclick="del(${t.id},${t.inc})">🗑️</button></div></div>`}).join('')
+    :'<p class="text-center text-slate-500 text-[11px] py-4">Sin datos registrados.</p>';
+  $('goalList').innerHTML=S.goals.length?S.goals.map(g=>{const p=Math.min(100,g.saved/g.target*100);
+    return `<div class="glass rounded-2xl p-4"><div class="flex justify-between items-center mb-2"><b class="text-sm">${p>=100?'🎉 ':'🎯 '}${esc(g.name)}</b><span class="text-xs font-semibold">${p.toFixed(0)}%</span></div><div class="w-full bg-slate-800/60 rounded-full h-2.5 overflow-hidden"><div class="h-full rounded-full bg-pink-500 transition-all" style="width:${p}%"></div></div><div class="flex justify-between items-end mt-2 text-xs"><div>${fmt(g.saved)} <span class="text-slate-400">/ ${fmt(g.target)}</span>${usd(g.saved)}</div><div class="flex gap-1"><button onclick="goalAdd(${g.id})" class="btn bg-pink-500/20 text-pink-400">＋ Abonar</button><button onclick="goalForm(${g.id})" class="btn bg-white/10">✏️</button><button onclick="goalDel(${g.id})" class="btn bg-white/10">🗑️</button></div></div></div>`}).join('')
+    :'<p class="text-center text-slate-500 text-xs py-8">Aún no tienes metas. ¡Crea la primera!</p>';
+  $('recList').innerHTML=S.recurring.length?S.recurring.map(r=>`<div class="flex justify-between items-center text-xs bg-white/5 rounded-xl p-2.5"><div><b>${esc(r.desc)}</b><span class="text-slate-400 block text-[10px]">Día ${r.day} · ${esc(r.subcategory)}</span></div><div class="flex items-center gap-2"><b>${fmt(r.amount)}</b><button onclick="recDel(${r.id})">🗑️</button></div></div>`).join(''):'<p class="text-center text-slate-500 text-[11px]">Sin gastos recurrentes.</p>';
+  if(charts.d){charts.d.data.datasets[0].data=spent.some(v=>v>0)?spent:[50,30,20];charts.d.update()}
+  if(charts.m){const n=new Date(),L=[],I=[],E=[];
+    for(let k=5;k>=0;k--){const d=new Date(n.getFullYear(),n.getMonth()-k,1),m=t=>{const x=new Date(t.timestamp);return x.getMonth()===d.getMonth()&&x.getFullYear()===d.getFullYear()};
+      L.push(d.toLocaleDateString('es-ES',{month:'short'}));I.push(sum(S.incomes.filter(m)));E.push(sum(S.expenses.filter(m)))}
+    charts.m.data.labels=L;charts.m.data.datasets[0].data=I;charts.m.data.datasets[1].data=E;charts.m.update()}
 }
+
 window.onload=()=>{
-  clock();setInterval(clock,1000);load();
-  chart=new Chart($('chart').getContext('2d'),{type:'doughnut',data:{labels:['Necesidades','Deseos','Ahorro'],datasets:[{data:[50,30,20],backgroundColor:['#10B981','#3B82F6','#EC4899'],borderWidth:0}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'72%',plugins:{legend:{position:'bottom',labels:{color:'#9CA3AF',boxWidth:10,font:{size:10}}}}}});
-  render();
+  clock();setInterval(clock,1000);load();applyRecurring();setTab('home');
+  const lg={position:'bottom',labels:{color:'#9CA3AF',boxWidth:10,font:{size:10}}};
+  charts.d=new Chart($('donut'),{type:'doughnut',data:{labels:['Necesidades','Deseos','Ahorro'],datasets:[{data:[50,30,20],backgroundColor:['#10B981','#3B82F6','#EC4899'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:'72%',plugins:{legend:lg}}});
+  const ax={ticks:{color:'#9CA3AF',font:{size:10}},grid:{color:'rgba(255,255,255,.06)'}};
+  charts.m=new Chart($('monthly'),{type:'bar',data:{labels:[],datasets:[{label:'Ingresos',data:[],backgroundColor:'#10B981',borderRadius:4},{label:'Gastos',data:[],backgroundColor:'#EC4899',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:lg},scales:{x:ax,y:ax}}});
+  if(isBs())getRate();else save();
 };
 </script>
 </body>
