@@ -109,7 +109,7 @@ body{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;background:#000;colo
 <script>
 const $=id=>document.getElementById(id);
 const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let S={currency:'$',incomes:[],expenses:[],goals:[],recurring:[],rate:null},filter='all',charts={},rateErr=false,formFn=null,_u=Date.now();
+let S={currency:'$',incomes:[],expenses:[],goals:[],recurring:[],rate:null,bin:null},filter='all',charts={},rateErr=false,binErr=false,formFn=null,_u=Date.now();
 const uid=()=>++_u;
 const CATS=[['needs','50%','Necesidades','#10B981','usado',.5],['wants','30%','Deseos & Ocio','#3B82F6','usado',.3],['savings','20%','Ahorro e Inversión','#EC4899','asignado',.2]];
 const CATOPT=[['needs','Necesidades (50%)'],['wants','Deseos y gustos (30%)'],['savings','Ahorro / Inversión (20%)']];
@@ -120,6 +120,15 @@ const num=v=>v.toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDi
 const fmt=v=>S.currency+(isBs()?' ':'')+num(v);
 const usd=v=>isBs()&&S.rate?`<span class="text-slate-400 text-[10px] block">≈ $${num(v/S.rate.value)} USD</span>`:'';
 const stamp=()=>{const n=new Date();return{id:uid(),timestamp:n.getTime(),date:n.toLocaleDateString('es-ES',{month:'short',day:'numeric'})}};
+
+/* ---------- Tasa de compra ---------- */
+const rateField=v=>isBs()?[]:[{id:'rate',l:`Tasa de compra (Bs por 1 ${S.currency}) · opcional`,t:'number',opt:1,v:v,h:S.currency==='$'?`<div class="flex gap-1 mt-1.5"><button type="button" onclick="fillRate('bcv')" class="btn bg-white/10">Usar BCV</button><button type="button" onclick="fillRate('bin')" class="btn bg-white/10">Usar Binance</button></div>`:`<p class="text-[10px] text-slate-400 mt-1">Indica cuántos Bs pagaste por cada € para ver el costo real.</p>`}];
+const rt=o=>isBs()?{}:{rate:parseFloat(o.rate)>0?parseFloat(o.rate):null};
+function fillRate(k){const r=k==='bcv'?S.rate:S.bin;if(r&&$('f_rate'))$('f_rate').value=r.value.toFixed(2)}
+const bsEq=t=>!isBs()&&t.rate?`<span class="text-amber-300/80 text-[10px] block">≈ Bs ${num(t.amount*t.rate)} · a ${num(t.rate)}</span>`:'';
+function bsTot(){if(isBs())return'';const f=a=>{const r=a.filter(x=>x.rate);return r.length?[r.reduce((q,x)=>q+x.amount*x.rate,0),r.length,a.length]:null};
+  const l=(n,v)=>v?`<span class="text-amber-300/80 text-[10px] block">${n}: ≈ Bs ${num(v[0])} <span class="text-slate-500">(${v[1]}/${v[2]} con tasa)</span></span>`:'';
+  return l('Ingresos',f(S.incomes))+l('Gastos',f(S.expenses))}
 
 /* ---------- Persistencia ---------- */
 function load(){try{const s=localStorage.getItem('finance_app_state');if(s)S=Object.assign(S,JSON.parse(s))}catch(e){}$('cur').value=S.currency}
@@ -135,7 +144,19 @@ async function getRate(){
   save();
 }
 function manualRate(){openForm('Tasa manual (Bs por $1)',[{id:'v',l:'Tasa BCV',t:'number',v:S.rate?S.rate.value:''}],o=>{const v=parseFloat(o.v);if(v>0){S.rate={value:v,date:new Date().toISOString(),manual:true};rateErr=false;save()}})}
-function setCur(c){S.currency=c;if(c==='Bs')getRate();else save()}
+async function getBinance(){
+  try{
+    const r=await fetch('https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fiat:'VES',asset:'USDT',tradeType:'BUY',page:1,rows:10,payTypes:[],countries:[],publisherType:null})});
+    if(!r.ok)throw 0;
+    const d=await r.json(),p=(d.data||[]).map(x=>parseFloat(x.adv&&x.adv.price)).filter(v=>v>0);
+    if(!p.length)throw 0;
+    S.bin={value:p.reduce((a,b)=>a+b,0)/p.length,n:p.length,date:new Date().toISOString(),manual:false};binErr=false;
+  }catch(e){binErr=true}
+  save();
+}
+function manualBin(){openForm('USDT Binance (Bs por 1 USDT)',[{id:'v',l:'Precio promedio',t:'number',v:S.bin?S.bin.value:''}],o=>{const v=parseFloat(o.v);if(v>0){S.bin={value:v,n:0,date:new Date().toISOString(),manual:true};binErr=false;save()}})}
+async function refreshRates(){await Promise.all([getRate(),getBinance()])}
+function setCur(c){S.currency=c;save()}
 
 /* ---------- UI base ---------- */
 function clock(){const d=new Date();$('clock').textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
@@ -154,18 +175,18 @@ function openForm(title,fields,fn,btn='Guardar'){
   $('fTitle').textContent=title;
   $('fFields').innerHTML=fields.map(f=>`<div><label class="text-[11px] text-slate-300 block mb-1">${f.l}</label>`+(f.o
     ?`<select id="f_${f.id}" class="inp">${f.o.map(o=>`<option value="${esc(o[0])}"${o[0]==f.v?' selected':''}>${esc(o[1])}</option>`).join('')}</select>`
-    :`<input id="f_${f.id}" type="${f.t||'text'}" ${f.t==='number'?`step="${f.s||'0.01'}" min="${f.m||'0.01'}"`:''} value="${esc(f.v??'')}" required class="inp">`)+'</div>').join('');
+    :`<input id="f_${f.id}" type="${f.t||'text'}" ${f.t==='number'?`step="${f.s||'0.01'}" min="${f.m||'0.01'}"`:''} value="${esc(f.v??'')}" ${f.opt?'':'required'} class="inp">`)+(f.h||'')+'</div>').join('');
   $('fBtn').textContent=btn;formFn=fn;openM('formM');
 }
 function submitForm(e){e.preventDefault();const o={};document.querySelectorAll('#fFields [id^=f_]').forEach(el=>o[el.id.slice(2)]=el.value);closeM('formM');formFn(o)}
 
 /* ---------- Ingresos / gastos (con edición) ---------- */
 function incForm(id){const x=S.incomes.find(i=>i.id===id)||{};
-  openForm(id?'Editar ingreso':'Nuevo ingreso',[{id:'type',l:'Tipo',o:[['weekly','Ingreso semanal'],['bonus','Bonificación / extra']],v:x.type},{id:'amt',l:'Monto ('+S.currency+')',t:'number',v:x.amount},{id:'desc',l:'Descripción',v:x.desc}],
-  o=>{const a=parseFloat(o.amt);if(!(a>0))return;if(id)Object.assign(x,{type:o.type,amount:a,desc:o.desc});else S.incomes.push({...stamp(),type:o.type,amount:a,desc:o.desc});save()})}
+  openForm(id?'Editar ingreso':'Nuevo ingreso',[{id:'type',l:'Tipo',o:[['weekly','Ingreso semanal'],['bonus','Bonificación / extra']],v:x.type},{id:'amt',l:'Monto ('+S.currency+')',t:'number',v:x.amount},...rateField(x.rate),{id:'desc',l:'Descripción',v:x.desc}],
+  o=>{const a=parseFloat(o.amt);if(!(a>0))return;if(id)Object.assign(x,{type:o.type,amount:a,desc:o.desc,...rt(o)});else S.incomes.push({...stamp(),type:o.type,amount:a,desc:o.desc,...rt(o)});save()})}
 function expForm(id){const x=S.expenses.find(i=>i.id===id)||{};
-  openForm(id?'Editar gasto':'Nuevo gasto',[{id:'cat',l:'Regla 50/30/20',o:CATOPT,v:x.category},{id:'sub',l:'Categoría',o:SUBOPT,v:x.subcategory},{id:'amt',l:'Monto ('+S.currency+')',t:'number',v:x.amount},{id:'desc',l:'Descripción',v:x.desc}],
-  o=>{const a=parseFloat(o.amt);if(!(a>0))return;const d={category:o.cat,subcategory:o.sub,amount:a,desc:o.desc};if(id)Object.assign(x,d);else S.expenses.push({...stamp(),...d});save()})}
+  openForm(id?'Editar gasto':'Nuevo gasto',[{id:'cat',l:'Regla 50/30/20',o:CATOPT,v:x.category},{id:'sub',l:'Categoría',o:SUBOPT,v:x.subcategory},{id:'amt',l:'Monto ('+S.currency+')',t:'number',v:x.amount},...rateField(x.rate),{id:'desc',l:'Descripción',v:x.desc}],
+  o=>{const a=parseFloat(o.amt);if(!(a>0))return;const d={category:o.cat,subcategory:o.sub,amount:a,desc:o.desc,...rt(o)};if(id)Object.assign(x,d);else S.expenses.push({...stamp(),...d});save()})}
 function del(id,inc){if(!confirm('¿Eliminar este movimiento?'))return;if(inc)S.incomes=S.incomes.filter(i=>i.id!==id);else S.expenses=S.expenses.filter(i=>i.id!==id);save()}
 function clearAll(){if((S.incomes.length||S.expenses.length)&&confirm('¿Borrar todos los movimientos?')){S.incomes=[];S.expenses=[];save()}}
 
@@ -178,19 +199,19 @@ function goalAdd(id){const g=S.goals.find(x=>x.id===id);
 function goalDel(id){if(confirm('¿Eliminar esta meta?')){S.goals=S.goals.filter(x=>x.id!==id);save()}}
 
 /* ---------- Recurrentes ---------- */
-function recForm(){openForm('Nuevo gasto recurrente',[{id:'cat',l:'Regla 50/30/20',o:CATOPT},{id:'sub',l:'Categoría',o:SUBOPT},{id:'amt',l:'Monto ('+S.currency+')',t:'number'},{id:'desc',l:'Descripción',v:''},{id:'day',l:'Día del mes (1-28)',t:'number',s:'1',m:'1',v:1}],
-  o=>{const a=parseFloat(o.amt),d=Math.min(28,Math.max(1,parseInt(o.day)||1));if(a>0){S.recurring.push({id:uid(),category:o.cat,subcategory:o.sub,amount:a,desc:o.desc,day:d,last:''});applyRecurring();save()}})}
+function recForm(){openForm('Nuevo gasto recurrente',[{id:'cat',l:'Regla 50/30/20',o:CATOPT},{id:'sub',l:'Categoría',o:SUBOPT},{id:'amt',l:'Monto ('+S.currency+')',t:'number'},...rateField(),{id:'desc',l:'Descripción',v:''},{id:'day',l:'Día del mes (1-28)',t:'number',s:'1',m:'1',v:1}],
+  o=>{const a=parseFloat(o.amt),d=Math.min(28,Math.max(1,parseInt(o.day)||1));if(a>0){S.recurring.push({id:uid(),category:o.cat,subcategory:o.sub,amount:a,desc:o.desc,day:d,last:'',...rt(o)});applyRecurring();save()}})}
 function recDel(id){S.recurring=S.recurring.filter(r=>r.id!==id);save()}
 function applyRecurring(){const n=new Date(),ym=n.getFullYear()+'-'+(n.getMonth()+1);
-  S.recurring.forEach(r=>{if(r.last!==ym&&n.getDate()>=r.day){S.expenses.push({...stamp(),category:r.category,subcategory:r.subcategory,amount:r.amount,desc:r.desc+' 🔁'});r.last=ym}})}
+  S.recurring.forEach(r=>{if(r.last!==ym&&n.getDate()>=r.day){S.expenses.push({...stamp(),category:r.category,subcategory:r.subcategory,amount:r.amount,rate:r.rate||null,desc:r.desc+' 🔁'});r.last=ym}})}
 
 /* ---------- Exportar / respaldo ---------- */
 function dl(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.appendChild(a);a.click();a.remove()}
 function exportCSV(){
   const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
-  const rows=[['Tipo','Fecha','Regla','Categoría','Descripción','Monto','Moneda']];
-  S.incomes.forEach(i=>rows.push(['Ingreso',new Date(i.timestamp).toISOString().slice(0,10),'',i.type==='weekly'?'Semanal':'Extra',i.desc,i.amount,S.currency]));
-  S.expenses.forEach(e=>rows.push(['Gasto',new Date(e.timestamp).toISOString().slice(0,10),e.category,e.subcategory,e.desc,e.amount,S.currency]));
+  const rows=[['Tipo','Fecha','Regla','Categoría','Descripción','Monto','Moneda','Tasa compra (Bs)','Equivalente Bs']];
+  S.incomes.forEach(i=>rows.push(['Ingreso',new Date(i.timestamp).toISOString().slice(0,10),'',i.type==='weekly'?'Semanal':'Extra',i.desc,i.amount,S.currency,i.rate||'',i.rate?+(i.amount*i.rate).toFixed(2):'']));
+  S.expenses.forEach(e=>rows.push(['Gasto',new Date(e.timestamp).toISOString().slice(0,10),e.category,e.subcategory,e.desc,e.amount,S.currency,e.rate||'',e.rate?+(e.amount*e.rate).toFixed(2):'']));
   dl('finanzas.csv','\ufeff'+rows.map(r=>r.map(q).join(',')).join('\n'),'text/csv;charset=utf-8');
 }
 function backup(){dl('respaldo-finanzas.json',JSON.stringify(S),'application/json')}
@@ -204,8 +225,8 @@ function shareApp(){const t=sum(S.incomes),g=sum(S.expenses);
 /* ---------- Render ---------- */
 function render(){
   const total=sum(S.incomes),spent=[],al=[];
-  $('total').textContent=fmt(total);$('totalUsd').innerHTML=usd(total);$('isBal').textContent=fmt(total);$('isSav').textContent=fmt(total*.2);
-  $('rate').innerHTML=isBs()?`<div class="glass rounded-2xl p-3 text-xs flex justify-between items-center"><div><b>🏦 Tasa BCV del día</b><br>${S.rate?`<span class="text-emerald-400 font-bold">Bs ${num(S.rate.value)}</span> por $1 · ${new Date(S.rate.date).toLocaleDateString('es-VE')}${S.rate.manual?' (manual)':''}`:'<span class="text-slate-400">Sin datos aún</span>'}${rateErr?'<br><span class="text-amber-400 text-[10px]">Sin conexión: usando la última tasa guardada</span>':''}</div><div class="flex gap-1"><button onclick="getRate()" class="btn bg-white/10">↻</button><button onclick="manualRate()" class="btn bg-white/10">✎</button></div></div>`:'';
+  $('total').textContent=fmt(total);$('totalUsd').innerHTML=usd(total)+bsTot();$('isBal').textContent=fmt(total);$('isSav').textContent=fmt(total*.2);
+  $('rate').innerHTML=`<div class="glass rounded-2xl p-3 text-xs space-y-2"><div class="flex justify-between items-center"><div><b>🏦 Tasa BCV del día</b><br>${S.rate?`<span class="text-emerald-400 font-bold">Bs ${num(S.rate.value)}</span> por $1 · ${new Date(S.rate.date).toLocaleDateString('es-VE')}${S.rate.manual?' (manual)':''}`:'<span class="text-slate-400">Sin datos aún</span>'}${rateErr?'<br><span class="text-amber-400 text-[10px]">Sin conexión: usando la última tasa guardada</span>':''}</div><div class="flex gap-1"><button onclick="getRate()" class="btn bg-white/10">↻</button><button onclick="manualRate()" class="btn bg-white/10">✎</button></div></div><div class="border-t border-white/10 pt-2 flex justify-between items-center"><div><b>🟡 USDT Binance P2P</b> <span class="text-slate-500 text-[10px]">(compra)</span><br>${S.bin?`<span class="text-amber-300 font-bold">Bs ${num(S.bin.value)}</span> por 1 USDT<br><span class="text-[10px] text-slate-400">${S.bin.manual?'Manual':'Promedio de '+S.bin.n+' ofertas'} · ${new Date(S.bin.date).toLocaleTimeString('es-VE',{hour:'2-digit',minute:'2-digit'})}${S.rate?` · brecha ${((S.bin.value/S.rate.value-1)*100).toFixed(1)}% vs BCV`:''}</span>`:'<span class="text-slate-400">Sin datos aún</span>'}${binErr?'<br><span class="text-amber-400 text-[10px]">No se pudo consultar Binance: usa ✎ para ingresarla</span>':''}</div><div class="flex gap-1"><button onclick="getBinance()" class="btn bg-white/10">↻</button><button onclick="manualBin()" class="btn bg-white/10">✎</button></div></div></div>`;
   $('bars').innerHTML=CATS.map(([k,pct,name,col,word,r])=>{
     const sp=sum(S.expenses.filter(e=>e.category===k)),bud=total*r,raw=bud>0?sp/bud*100:0,p=Math.min(100,raw);spent.push(sp);
     if(k!=='savings'&&bud>0&&raw>=90)al.push(raw>=100?`<div class="rounded-xl p-2.5 text-xs bg-red-500/15 border border-red-500/30 text-red-300">🚨 Superaste tu presupuesto de ${name} (${raw.toFixed(0)}%)</div>`:`<div class="rounded-xl p-2.5 text-xs bg-amber-500/15 border border-amber-500/30 text-amber-300">⚠️ Llevas ${raw.toFixed(0)}% de ${name}</div>`);
@@ -214,7 +235,7 @@ function render(){
   $('filters').innerHTML=[['all','Todos'],['weekly','Semana'],['monthly','Mes'],['yearly','Año']].map(([f,l])=>`<button onclick="setFilter('${f}')" class="py-1 rounded-lg ${f===filter?'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30':''}">${l}</button>`).join('');
   const tx=[...S.incomes.map(i=>({...i,inc:true})),...S.expenses.map(e=>({...e,inc:false}))].filter(t=>inRange(t.timestamp)).sort((a,b)=>b.id-a.id);
   $('list').innerHTML=tx.length?tx.map(t=>{const ic=t.inc?(t.type==='weekly'?'📅':'🎁'):(t.category==='needs'?'🏠':t.category==='wants'?'🎮':'🐷');
-    return `<div class="glass p-2.5 rounded-xl flex justify-between items-center text-xs"><div class="flex items-center gap-2"><span class="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center">${ic}</span><div><b class="block text-[11px]">${esc(t.desc)}</b><span class="text-[10px] text-slate-400">${t.date} ${esc(t.subcategory||'')}</span></div></div><div class="flex items-center gap-2"><div class="text-right"><b class="text-[11px] ${t.inc?'text-emerald-400':'text-slate-200'}">${t.inc?'+':'-'}${fmt(t.amount)}</b>${usd(t.amount)}</div><button onclick="${t.inc?'incForm':'expForm'}(${t.id})">✏️</button><button onclick="del(${t.id},${t.inc})">🗑️</button></div></div>`}).join('')
+    return `<div class="glass p-2.5 rounded-xl flex justify-between items-center text-xs"><div class="flex items-center gap-2"><span class="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center">${ic}</span><div><b class="block text-[11px]">${esc(t.desc)}</b><span class="text-[10px] text-slate-400">${t.date} ${esc(t.subcategory||'')}</span></div></div><div class="flex items-center gap-2"><div class="text-right"><b class="text-[11px] ${t.inc?'text-emerald-400':'text-slate-200'}">${t.inc?'+':'-'}${fmt(t.amount)}</b>${usd(t.amount)}${bsEq(t)}</div><button onclick="${t.inc?'incForm':'expForm'}(${t.id})">✏️</button><button onclick="del(${t.id},${t.inc})">🗑️</button></div></div>`}).join('')
     :'<p class="text-center text-slate-500 text-[11px] py-4">Sin datos registrados.</p>';
   $('goalList').innerHTML=S.goals.length?S.goals.map(g=>{const p=Math.min(100,g.saved/g.target*100);
     return `<div class="glass rounded-2xl p-4"><div class="flex justify-between items-center mb-2"><b class="text-sm">${p>=100?'🎉 ':'🎯 '}${esc(g.name)}</b><span class="text-xs font-semibold">${p.toFixed(0)}%</span></div><div class="w-full bg-slate-800/60 rounded-full h-2.5 overflow-hidden"><div class="h-full rounded-full bg-pink-500 transition-all" style="width:${p}%"></div></div><div class="flex justify-between items-end mt-2 text-xs"><div>${fmt(g.saved)} <span class="text-slate-400">/ ${fmt(g.target)}</span>${usd(g.saved)}</div><div class="flex gap-1"><button onclick="goalAdd(${g.id})" class="btn bg-pink-500/20 text-pink-400">＋ Abonar</button><button onclick="goalForm(${g.id})" class="btn bg-white/10">✏️</button><button onclick="goalDel(${g.id})" class="btn bg-white/10">🗑️</button></div></div></div>`}).join('')
@@ -233,7 +254,7 @@ window.onload=()=>{
   charts.d=new Chart($('donut'),{type:'doughnut',data:{labels:['Necesidades','Deseos','Ahorro'],datasets:[{data:[50,30,20],backgroundColor:['#10B981','#3B82F6','#EC4899'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,cutout:'72%',plugins:{legend:lg}}});
   const ax={ticks:{color:'#9CA3AF',font:{size:10}},grid:{color:'rgba(255,255,255,.06)'}};
   charts.m=new Chart($('monthly'),{type:'bar',data:{labels:[],datasets:[{label:'Ingresos',data:[],backgroundColor:'#10B981',borderRadius:4},{label:'Gastos',data:[],backgroundColor:'#EC4899',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:lg},scales:{x:ax,y:ax}}});
-  if(isBs())getRate();else save();
+  save();getRate();getBinance();
 };
 </script>
 </body>

@@ -9,6 +9,8 @@ App web de presupuesto personal (regla 50/30/20) pensada para iPhone.
 - Metas de ahorro con abonos
 - Gastos recurrentes (se registran solos cada mes)
 - Tasa BCV del día (vía DolarAPI) y conversión a USD al usar Bs
+- Promedio USDT/Bs de Binance P2P (compra) y brecha frente al BCV
+- Tasa de compra opcional al registrar montos en $ o €, con equivalente en Bs
 - Exportar a CSV (Excel), respaldo y restauración en JSON
 - Datos guardados en el navegador (localStorage)
 
