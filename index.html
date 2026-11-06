@@ -144,15 +144,21 @@ async function getRate(){
   save();
 }
 function manualRate(){openForm('Tasa manual (Bs por $1)',[{id:'v',l:'Tasa BCV',t:'number',v:S.rate?S.rate.value:''}],o=>{const v=parseFloat(o.v);if(v>0){S.rate={value:v,date:new Date().toISOString(),manual:true};rateErr=false;save()}})}
+const tmo=(u,o={})=>{const c=new AbortController(),t=setTimeout(()=>c.abort(),7000);return fetch(u,{...o,signal:c.signal,cache:'no-store'}).finally(()=>clearTimeout(t))};
 async function getBinance(){
-  try{
-    const r=await fetch('https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fiat:'VES',asset:'USDT',tradeType:'BUY',page:1,rows:10,payTypes:[],countries:[],publisherType:null})});
-    if(!r.ok)throw 0;
-    const d=await r.json(),p=(d.data||[]).map(x=>parseFloat(x.adv&&x.adv.price)).filter(v=>v>0);
-    if(!p.length)throw 0;
-    S.bin={value:p.reduce((a,b)=>a+b,0)/p.length,n:p.length,date:new Date().toISOString(),manual:false};binErr=false;
-  }catch(e){binErr=true}
-  save();
+  const fuentes=[
+    async()=>{ /* 1) Binance P2P directo (promedio de 10 ofertas) */
+      const r=await tmo('https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fiat:'VES',asset:'USDT',tradeType:'BUY',page:1,rows:10,payTypes:[],countries:[],publisherType:null})});
+      if(!r.ok)throw 0;const d=await r.json(),p=(d.data||[]).map(x=>parseFloat(x.adv&&x.adv.price)).filter(v=>v>0);
+      if(!p.length)throw 0;return{value:p.reduce((x,y)=>x+y,0)/p.length,n:p.length,src:'Binance P2P'}},
+    async()=>{ /* 2) Respaldo: dólar paralelo de DolarAPI (mismo servidor que ya usa el BCV) */
+      const r=await tmo('https://ve.dolarapi.com/v1/dolares');if(!r.ok)throw 0;
+      const d=await r.json(),x=(Array.isArray(d)?d:[]).find(i=>/paralelo/i.test((i.fuente||'')+' '+(i.nombre||''))),v=x&&parseFloat(x.promedio||x.venta);
+      if(!(v>0))throw 0;return{value:v,n:0,src:'Paralelo (DolarAPI, ref. Binance)'}}
+  ];
+  binErr=false;
+  for(const f of fuentes){try{const r=await f();if(r&&r.value>0){S.bin={...r,date:new Date().toISOString(),manual:false};save();return}}catch(e){}}
+  binErr=true;save();
 }
 function manualBin(){openForm('USDT Binance (Bs por 1 USDT)',[{id:'v',l:'Precio promedio',t:'number',v:S.bin?S.bin.value:''}],o=>{const v=parseFloat(o.v);if(v>0){S.bin={value:v,n:0,date:new Date().toISOString(),manual:true};binErr=false;save()}})}
 async function refreshRates(){await Promise.all([getRate(),getBinance()])}
@@ -226,7 +232,7 @@ function shareApp(){const t=sum(S.incomes),g=sum(S.expenses);
 function render(){
   const total=sum(S.incomes),spent=[],al=[];
   $('total').textContent=fmt(total);$('totalUsd').innerHTML=usd(total)+bsTot();$('isBal').textContent=fmt(total);$('isSav').textContent=fmt(total*.2);
-  $('rate').innerHTML=`<div class="glass rounded-2xl p-3 text-xs space-y-2"><div class="flex justify-between items-center"><div><b>🏦 Tasa BCV del día</b><br>${S.rate?`<span class="text-emerald-400 font-bold">Bs ${num(S.rate.value)}</span> por $1 · ${new Date(S.rate.date).toLocaleDateString('es-VE')}${S.rate.manual?' (manual)':''}`:'<span class="text-slate-400">Sin datos aún</span>'}${rateErr?'<br><span class="text-amber-400 text-[10px]">Sin conexión: usando la última tasa guardada</span>':''}</div><div class="flex gap-1"><button onclick="getRate()" class="btn bg-white/10">↻</button><button onclick="manualRate()" class="btn bg-white/10">✎</button></div></div><div class="border-t border-white/10 pt-2 flex justify-between items-center"><div><b>🟡 USDT Binance P2P</b> <span class="text-slate-500 text-[10px]">(compra)</span><br>${S.bin?`<span class="text-amber-300 font-bold">Bs ${num(S.bin.value)}</span> por 1 USDT<br><span class="text-[10px] text-slate-400">${S.bin.manual?'Manual':'Promedio de '+S.bin.n+' ofertas'} · ${new Date(S.bin.date).toLocaleTimeString('es-VE',{hour:'2-digit',minute:'2-digit'})}${S.rate?` · brecha ${((S.bin.value/S.rate.value-1)*100).toFixed(1)}% vs BCV`:''}</span>`:'<span class="text-slate-400">Sin datos aún</span>'}${binErr?'<br><span class="text-amber-400 text-[10px]">No se pudo consultar Binance: usa ✎ para ingresarla</span>':''}</div><div class="flex gap-1"><button onclick="getBinance()" class="btn bg-white/10">↻</button><button onclick="manualBin()" class="btn bg-white/10">✎</button></div></div></div>`;
+  $('rate').innerHTML=`<div class="glass rounded-2xl p-3 text-xs space-y-2"><div class="flex justify-between items-center"><div><b>🏦 Tasa BCV del día</b><br>${S.rate?`<span class="text-emerald-400 font-bold">Bs ${num(S.rate.value)}</span> por $1 · ${new Date(S.rate.date).toLocaleDateString('es-VE')}${S.rate.manual?' (manual)':''}`:'<span class="text-slate-400">Sin datos aún</span>'}${rateErr?'<br><span class="text-amber-400 text-[10px]">Sin conexión: usando la última tasa guardada</span>':''}</div><div class="flex gap-1"><button onclick="getRate()" class="btn bg-white/10">↻</button><button onclick="manualRate()" class="btn bg-white/10">✎</button></div></div><div class="border-t border-white/10 pt-2 flex justify-between items-center"><div><b>🟡 USDT Binance P2P</b> <span class="text-slate-500 text-[10px]">(compra)</span><br>${S.bin?`<span class="text-amber-300 font-bold">Bs ${num(S.bin.value)}</span> por 1 USDT<br><span class="text-[10px] text-slate-400">${S.bin.manual?'Manual':(S.bin.src||'Binance P2P')+(S.bin.n?' · prom. de '+S.bin.n+' ofertas':'')} · ${new Date(S.bin.date).toLocaleTimeString('es-VE',{hour:'2-digit',minute:'2-digit'})}${S.rate?` · brecha ${((S.bin.value/S.rate.value-1)*100).toFixed(1)}% vs BCV`:''}</span>`:'<span class="text-slate-400">Sin datos aún</span>'}${binErr?'<br><span class="text-amber-400 text-[10px]">No se pudo actualizar (sin conexión o bloqueado): se muestra el último valor. Usa ✎ para ingresarla</span>':''}</div><div class="flex gap-1"><button onclick="getBinance()" class="btn bg-white/10">↻</button><button onclick="manualBin()" class="btn bg-white/10">✎</button></div></div></div>`;
   $('bars').innerHTML=CATS.map(([k,pct,name,col,word,r])=>{
     const sp=sum(S.expenses.filter(e=>e.category===k)),bud=total*r,raw=bud>0?sp/bud*100:0,p=Math.min(100,raw);spent.push(sp);
     if(k!=='savings'&&bud>0&&raw>=90)al.push(raw>=100?`<div class="rounded-xl p-2.5 text-xs bg-red-500/15 border border-red-500/30 text-red-300">🚨 Superaste tu presupuesto de ${name} (${raw.toFixed(0)}%)</div>`:`<div class="rounded-xl p-2.5 text-xs bg-amber-500/15 border border-amber-500/30 text-amber-300">⚠️ Llevas ${raw.toFixed(0)}% de ${name}</div>`);
